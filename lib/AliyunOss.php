@@ -1,13 +1,11 @@
 <?php
-
+// +----------------------------------------------------------------------
+// | Author: jhj <jhj767658181@gmail.com>
+// +----------------------------------------------------------------------
 namespace plugins\aliyun_oss\lib;
 
 use OSS\OssClient;
 use OSS\Core\OssException;
-
-
-use Qiniu\Storage\UploadManager;
-
 class AliyunOss
 {
 
@@ -15,13 +13,10 @@ class AliyunOss
 
     private $storageRoot;
 
-    /**
-     * @var \plugins\qiniu\QiniuPlugin
-     */
     private $plugin;
 
     /**
-     * Qiniu constructor.
+     * AliyunOss constructor.
      * @param $config
      */
     public function __construct($config)
@@ -30,8 +25,8 @@ class AliyunOss
 
         $this->plugin = new $pluginClass();
         $this->config = $this->plugin->getConfig();
-
-//        $this->storageRoot = $this->config['protocol'] . '://' . $this->config['domain'] . '/';
+        //根路径
+        $this->storageRoot = $this->config['protocol'] . '://' . $this->config['Endpoint'] . '/';
     }
 
     /**
@@ -39,7 +34,6 @@ class AliyunOss
      * @param string $file 上传文件路径
      * @param string $filePath 文件路径相对于upload目录
      * @param string $fileType 文件类型,image,video,audio,file
-     * @param array $param 额外参数
      * @return mixed
      */
     public function upload($file, $filePath, $fileType = 'image')
@@ -48,6 +42,8 @@ class AliyunOss
         $accessKeySecret= $this->config['accessKeySecret'];
         $EndPoint= $this->config['Endpoint'];
         $bucket= $this->config['bucket'];
+
+        $ossClient = '';
         try{
             $ossClient = new OssClient($accessKeyId,$accessKeySecret,$EndPoint,true);
         }catch (OssException $e){
@@ -59,26 +55,18 @@ class AliyunOss
         //判断bucket是否存在,不存在去创建
         if(!$ossClient->doesBucketExist($bucket))
         {
-            $ossClient->createBucket();
+            $ossClient->createBucket($bucket);
         }
 
         try{
             $ossClient->uploadFile($bucket,$file,$filePath);
         }catch (OssException $e){
-            printf($e->getMessage() . "\n");
-            return;
+            return $e->getMessage();
         }
 
-//        $upManager = new UploadManager();
-//        $auth      = new Auth($accessKey, $secretKey);
-//        $token     = $auth->uploadToken($this->config['bucket']);
-//
-//        $result = $upManager->putFile($token, $file, $filePath);
+        $previewUrl = $fileType == 'image' ? $this->getPreviewUrl($file) : $this->getFileDownloadUrl($file);
+        $url        = $fileType == 'image' ? $this->getImageUrl($file) : $this->getFileDownloadUrl($file);
 
-//        $previewUrl = $fileType == 'image' ? $this->getPreviewUrl($file) : $this->getFileDownloadUrl($file);
-//        $url        = $fileType == 'image' ? $this->getImageUrl($file, 'watermark') : $this->getFileDownloadUrl($file);
-        $previewUrl = $this->config['Endpoint'] . $file;
-        $url = $previewUrl;
         return [
             'preview_url' => $previewUrl,
             'url'         => $url,
@@ -87,54 +75,34 @@ class AliyunOss
 
     /**
      * 获取图片预览地址
-     * @param string $file
-     * @param string $style
-     * @return mixed
+     * @param $file
+     * @return string
+     * @author jhj
      */
-    public function getPreviewUrl($file, $style = '')
+    public function getPreviewUrl($file)
     {
-        $style = empty($style) ? 'watermark' : $style;
-
-        $url = $this->getUrl($file, $style);
-
-        return $url;
+        return $this->getUrl($file);
     }
 
     /**
      * 获取图片地址
      * @param string $file
-     * @param string $style
      * @return mixed
      */
-    public function getImageUrl($file, $style = '')
+    public function getImageUrl($file)
     {
-        $style  = empty($style) ? 'watermark' : $style;
-        $config = $this->config;
-        $url    = $this->storageRoot . $file;
-
-        if (!empty($style)) {
-            $url = $url . $config['style_separator'] . $style;
-        }
-
-        return $url;
+        return $this->getUrl($file);
     }
 
     /**
      * 获取文件地址
-     * @param string $file
-     * @param string $style
-     * @return mixed
+     * @param $file
+     * @return string
+     * @author jhj
      */
-    public function getUrl($file, $style = '')
+    public function getUrl($file)
     {
-        $config = $this->config;
-        $url    = $this->storageRoot . $file;
-
-        if (!empty($style)) {
-            $url = $url . $config['style_separator'] . $style;
-        }
-
-        return $url;
+        return $this->storageRoot . $file;
     }
 
     /**
@@ -145,12 +113,12 @@ class AliyunOss
      */
     public function getFileDownloadUrl($file, $expires = 3600)
     {
-//        $accessKey = $this->config['accessKey'];
-//        $secretKey = $this->config['secretKey'];
-//        $auth      = new Auth($accessKey, $secretKey);
-//        $url       = $this->getUrl($file);
-//        return $auth->privateDownloadUrl($url, $expires);
-        return 'www.baidu.com';
+        try{
+            $ossClient = new OssClient($this->config['accessKeyId'],$this->config['accessKeySecret'],$this->config['Endpoint'],true);
+            return $ossClient->signUrl($this->config['Endpoint'],$file,$expires);
+        }catch (OssException $e){
+            return $e->getMessage();
+        }
     }
 
     /**
@@ -160,30 +128,5 @@ class AliyunOss
     public function getDomain()
     {
         return $this->config['domain'];
-    }
-
-    /**
-     * 获取文件相对上传目录路径
-     * @param string $url
-     * @return mixed
-     */
-    public function getFilePath($url)
-    {
-        $parsedUrl = parse_url($url);
-
-        if (!empty($parsedUrl['path'])) {
-            $url            = ltrim($parsedUrl['path'], '/\\');
-            $config         = $this->config;
-            $styleSeparator = $config['style_separator'];
-
-            $styleSeparatorPosition = strpos($url, $styleSeparator);
-            if ($styleSeparatorPosition !== false) {
-                $url = substr($url, 0, strpos($url, $styleSeparator));
-            }
-        } else {
-            $url = '';
-        }
-
-        return $url;
     }
 }

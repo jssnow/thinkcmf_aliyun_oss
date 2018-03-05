@@ -51,6 +51,22 @@ return [
         ],
         'tip'     => ''
     ],
+    'protocol'                  => [// 在后台插件配置表单中的键名 ,会是config[select]
+        'title'   => '域名协议',
+        'type'    => 'select',
+        'options' => [//select 和radio,checkbox的子选项
+            'http'  => 'http',// 值=>显示
+            'https' => 'https',
+        ],
+        'value'   => 'http',
+        "rule"    => [
+            "require" => true
+        ],
+        "message" => [
+            "require" => '域名协议不能为空'
+        ],
+        'tip'     => ''
+    ],
     'style_separator'           => [
         'title'   => '样式分隔符',
         'type'    => 'text',
