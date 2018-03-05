@@ -108,17 +108,36 @@ class AliyunOss
     /**
      * 获取文件下载地址
      * @param string $file
-     * @param int $expires
      * @return mixed
      */
-    public function getFileDownloadUrl($file, $expires = 3600)
+    public function getFileDownloadUrl($file)
     {
-        try{
-            $ossClient = new OssClient($this->config['accessKeyId'],$this->config['accessKeySecret'],$this->config['Endpoint'],true);
-            return $ossClient->signUrl($this->config['Endpoint'],$file,$expires);
-        }catch (OssException $e){
-            return $e->getMessage();
+        return $this->storageRoot . $file;
+    }
+
+    /**
+     * 获取文件相对上传目录路径
+     * @param string $url
+     * @return mixed
+     */
+    public function getFilePath($url)
+    {
+        $parsedUrl = parse_url($url);
+
+        if (!empty($parsedUrl['path'])) {
+            $url            = ltrim($parsedUrl['path'], '/\\');
+            $config         = $this->config;
+            $styleSeparator = $config['style_separator'];
+
+            $styleSeparatorPosition = strpos($url, $styleSeparator);
+            if ($styleSeparatorPosition !== false) {
+                $url = substr($url, 0, strpos($url, $styleSeparator));
+            }
+        } else {
+            $url = '';
         }
+
+        return $url;
     }
 
     /**
@@ -127,6 +146,6 @@ class AliyunOss
      */
     public function getDomain()
     {
-        return $this->config['domain'];
+        return $this->config['Endpoint'];
     }
 }
