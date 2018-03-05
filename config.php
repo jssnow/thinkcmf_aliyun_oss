@@ -66,18 +66,6 @@ return [
             "require" => '域名协议不能为空'
         ],
         'tip'     => ''
-    ],
-    'style_separator'           => [
-        'title'   => '样式分隔符',
-        'type'    => 'text',
-        'value'   => '!',
-        "rule"    => [
-            "require" => true
-        ],
-        "message" => [
-            "require" => '样式分隔符不能为空'
-        ],
-        'tip'     => ''
-    ],
+    ]
 ];
 					
